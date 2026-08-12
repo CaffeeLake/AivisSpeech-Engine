@@ -10,7 +10,7 @@ dependencies = [
   "platformdirs>=4.2.0",
   "psutil>=6.1.1",
   "pydantic>=2.7.3",
-  "pyopenjtalk-plus>=0.4.1.post8,<1.0.0",
+  "pyopenjtalk-plus>=0.4.1.post9,<1.0.0",
   "python-multipart>=0.0.31,<1.0.0", # NOTE: required by fastapi.Form (fastapi-slim's unmanaged dependency)
   "pyworld-prebuilt>=0.3.5.post2,<1.0.0",
   "pyyaml>=6.0.1",
@@ -51,11 +51,12 @@ dependencies = [
 ]
 
 [tool.uv]
-default-groups = []
+default-groups = ["build", "dev"]
 exclude-newer = "1 week"
+exclude-newer-package = { pyopenjtalk-plus = false }
 
 [tool.uv.sources]
-style-bert-vits2 = { git = "https://github.com/tsukumijima/Style-Bert-VITS2", rev = "ef67a93443a1929674a016f6f288873c69638ed7" }
+style-bert-vits2 = { git = "https://github.com/tsukumijima/Style-Bert-VITS2", rev = "ec5125c7277a014dd104d4c887c842bd052ada68" }
 e2k = { git = "https://github.com/tsukumijima/e2k", rev = "9920754e15d8c96404bef0bd81d424352fb7a48b" }
 
 [dependency-groups]
