@@ -53,7 +53,8 @@ def _test_release_build(
             raise Exception("Failed to start the engine.")
 
         # テキスト -> クエリ
-        text = "こんにちは、音声合成の世界へようこそ"
+        # tsqyomi が文脈から「ヒトケ」を選ぶ文章で、配布物でも実際に読み分けできることを確認する
+        text = "人気のない店"
         req = Request(
             base_url
             + "audio_query?"
@@ -62,6 +63,14 @@ def _test_release_build(
         )
         with urlopen(req) as res:
             query = json.loads(res.read().decode("utf-8"))
+        assert (
+            "".join(
+                mora["text"]
+                for phrase in query["accent_phrases"]
+                for mora in phrase["moras"]
+            )
+            == "ヒトケノナイミセ"
+        )
 
         # クエリ -> 音声
         req = Request(base_url + "synthesis?speaker=888753760", method="POST")

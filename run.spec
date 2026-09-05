@@ -30,7 +30,8 @@ a = Analysis(
     pathex=[],
     binaries=binaries,
     datas=datas,
-    hiddenimports=[],
+    # Cython 拡張内の import は自動検出されないため、記号の形態素情報を明示的に同梱する
+    hiddenimports=['pyopenjtalk._known_symbols'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
