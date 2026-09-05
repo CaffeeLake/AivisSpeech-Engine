@@ -382,10 +382,6 @@ class UserDictionary:
         default_dict_dir_path = self._default_dict_dir_path
         user_dict_path = self._user_dict_path
 
-        # pytest 実行時かつ Windows ではなぜか辞書更新時に MeCab の初期化に失敗するので、辞書更新自体を無効化する
-        if self._is_pytest and sys.platform == "win32":
-            return
-
         # 一時保存ファイルのパスを生成
         random_string = uuid4()
         tmp_csv_path = user_dict_path.with_name(f"user.dict_csv-{random_string}.tmp")

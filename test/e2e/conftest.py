@@ -173,8 +173,7 @@ def _build_app_params(
     preset_manager = PresetManager(preset_path)
 
     # テスト用に隔離されたユーザー辞書を生成する
-    # デフォルトユーザー辞書は Windows の pytest 実行時には適用されないため、
-    # E2E テストのアクセント句生成が OS ごとに変わらないよう空の辞書ディレクトリを使う
+    # 同梱辞書の更新に左右されず API の挙動を検査できるよう、空の共有辞書ディレクトリを使う
     default_dict_dir_path = tmp_path / "default_dictionaries"
     default_dict_dir_path.mkdir()
     user_dict = UserDictionary(
