@@ -17,6 +17,7 @@ import onnxruntime
 from fastapi import HTTPException
 from numpy.typing import NDArray
 from onnxruntime.capi.onnxruntime_pybind11_state import InvalidProtobuf, NoSuchFile
+from pyopenjtalk import tsqyomi
 from style_bert_vits2.constants import (
     DEFAULT_SDP_RATIO,
     DEFAULT_STYLE_WEIGHT,
@@ -198,6 +199,17 @@ class StyleBertVITS2TTSEngine(TTSEngine):
         logger.info(
             f"BERT model and tokenizer loaded. ({time.time() - start_time:.2f}s)"
         )
+
+        # 文脈に応じた読み分けに使う tsqyomi をロードし、他のモデルと同じ保存先へキャッシュする
+        # 小規模な読み分けモデルは CPU で実行し、音声合成用の GPU メモリを確保する
+        start_time = time.time()
+        logger.info("Loading tsqyomi model...")
+        tsqyomi.load_model(
+            onnx_providers=["CPUExecutionProvider"],
+            cache_dir=self._bert_model_cache_dir,
+            allow_provider_fallback=False,
+        )
+        logger.info(f"tsqyomi model loaded. ({time.time() - start_time:.2f}s)")
 
         # load_all_models が True の場合は全ての音声合成モデルをロードしておく
         if load_all_models is True:
@@ -439,7 +451,7 @@ class StyleBertVITS2TTSEngine(TTSEngine):
         ## VOICEVOX ENGINE 側のアクセント句系列生成処理は微妙に互換性がないため使っていない
         ## VOICEVOX ENGINE では「ん」の音素を「N」としているため、use_jp_extra (True のとき「ん」の音素を「N」とする) は常に True に設定している
         ## JP-Extra モデルと通常のモデルの音素差の吸収は synthesize_wave() で行う
-        phones, tones, _, _, _, sep_kata_with_joshi = g2p(normalized_text, use_jp_extra=True, raise_yomi_error=False)  # fmt: skip
+        phones, tones, _, _, _, sep_kata_with_joshi = g2p(normalized_text, use_jp_extra=True, use_tsqyomi=True, raise_yomi_error=False)  # fmt: skip
         mora_tone_list = _phone_tone2mora_tone(list(zip(phones, tones, strict=False)))
 
         # sep_kata_with_joshi のカタカナを音素 (子音と母音のタプル) に変換

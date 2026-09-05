@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 
 import pyopenjtalk
 from pydantic import TypeAdapter, ValidationError
+from pyopenjtalk.types import UserDictionaryEntry
 
 from voicevox_engine.logging import logger
 from voicevox_engine.user_dict.constants import (
@@ -436,35 +437,43 @@ class UserDictionary:
                     logger.info("- " + csv_row.strip())
                     csv_text += csv_row
 
-                # この時点で csv_text が空文字列のとき、ユーザー辞書が空なため処理を終了する
-                # ユーザー辞書 CSV が空の状態で継続すると pyopenjtalk.mecab_dict_index() 実行時に
-                # Segmentation Fault が発生するのを回避する
-                if not csv_text:
-                    logger.info("User dictionary is empty. Skipping dictionary update.")
-                    return
-
-                # 辞書データを辞書.csv へ一時保存
-                tmp_csv_path.write_text(csv_text, encoding="utf-8")
-
-                # 辞書.csv を OpenJTalk 用にビルド
-                pyopenjtalk.mecab_dict_index(str(tmp_csv_path), str(tmp_compiled_path))
-                if not tmp_compiled_path.is_file():
-                    raise RuntimeError("辞書のビルド時にエラーが発生しました。")
-
-                # ユーザー辞書の適用を解除
-                pyopenjtalk.unset_user_dict()
-
                 # デフォルトユーザー辞書ディレクトリにある *.dic ファイルを名前順に取得
                 dict_files = sorted(list(default_dict_dir_path.glob("**/*.dic")))
-                # 先ほどビルドしたユーザー辞書ファイルのパスを追加
-                dict_files.append(tmp_compiled_path)
+                # 共有辞書の同形異音語は tsqyomi の読み分け候補に含める
+                # NOTE: resolve() によりコンパイル実行時でも相対パスを正しく認識できる
+                dictionary_entries: list[UserDictionaryEntry] = [
+                    {
+                        "dic_path": str(path.resolve(strict=True)),
+                        "is_reading_protected": False,
+                    }
+                    for path in dict_files
+                ]
+
+                # 空の CSV は MeCab のビルド時にクラッシュするため、登録語がある場合だけビルドする
+                # 最後の登録語を削除した場合も、共有辞書だけの状態へ更新する
+                if csv_text:
+                    # 辞書データを CSV へ一時保存し、OpenJTalk 用にビルド
+                    tmp_csv_path.write_text(csv_text, encoding="utf-8")
+                    pyopenjtalk.mecab_dict_index(
+                        str(tmp_csv_path), str(tmp_compiled_path)
+                    )
+                    if not tmp_compiled_path.is_file():
+                        raise RuntimeError("辞書のビルド時にエラーが発生しました。")
+
+                    # 利用者が指定した読みは tsqyomi の変換対象から除外する
+                    dictionary_entries.append(
+                        {
+                            "dic_path": str(tmp_compiled_path.resolve(strict=True)),
+                            "is_reading_protected": True,
+                        }
+                    )
 
                 # ユーザー辞書を pyopenjtalk に適用
-                # デフォルトのユーザー辞書ファイルと、先ほどビルドしたユーザー辞書ファイルの両方を指定する
-                # NOTE: resolve() によりコンパイル実行時でも相対パスを正しく認識できる
-                dict_paths = [str(p.resolve(strict=True)) for p in dict_files]
-                if dict_paths:  # 辞書ファイルが1つ以上存在する場合のみ実行
-                    pyopenjtalk.update_global_jtalk_with_user_dict(dict_paths)
+                # 辞書が1つもない場合は内蔵辞書のみの状態に戻す
+                if dictionary_entries:
+                    pyopenjtalk.update_global_jtalk_with_user_dict(dictionary_entries)
+                else:
+                    pyopenjtalk.unset_user_dict()
 
                 logger.info(
                     f"User dictionary applied. ({time.time() - start_time:.2f}s)"
