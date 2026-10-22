@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-import httpx
+import httpx2 as httpx
 import pytest
 import yaml
 from fastapi import FastAPI

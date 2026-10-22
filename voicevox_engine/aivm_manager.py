@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import BinaryIO
 
 import aivmlib
-import httpx
+import httpx2 as httpx
 from aivmlib.schemas.aivm_manifest import (
     AivmManifest,
     AivmManifestSpeaker,

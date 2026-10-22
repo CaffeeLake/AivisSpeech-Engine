@@ -8,7 +8,7 @@ import uuid
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-import httpx
+import httpx2 as httpx
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from voicevox_engine.logging import logger

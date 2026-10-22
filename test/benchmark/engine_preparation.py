@@ -4,7 +4,7 @@ import warnings
 from pathlib import Path
 from typing import Literal, assert_never
 
-import httpx
+import httpx2 as httpx
 from fastapi.testclient import TestClient
 
 from voicevox_engine.aivm_manager import AivmManager
