@@ -1,6 +1,7 @@
 """tsqyomi による読み分けから音声合成までの E2E テスト。"""
 
 from io import BytesIO
+from unittest.mock import patch
 
 import numpy as np
 import pyopenjtalk
@@ -9,10 +10,87 @@ import soundfile
 from fastapi.testclient import TestClient
 from pydantic import TypeAdapter
 from pyopenjtalk.tsqyomi import diagnostics
+from style_bert_vits2.nlp.japanese.g2p import g2p
 
 from test.e2e.single_api.utils import get_first_style_id
 from voicevox_engine.model import AudioQuery
+from voicevox_engine.tts_pipeline import style_bert_vits2_tts_engine
 from voicevox_engine.tts_pipeline.model import AccentPhrase
+
+
+@pytest.mark.parametrize("endpoint", ["/audio_query", "/accent_phrases"])
+@pytest.mark.parametrize(
+    ("text", "norm_text", "analysis_text"),
+    [
+        (
+            "こんにちは。元気ですか、田中さん",
+            "こんにちは.元気ですか,田中さん",
+            "こんにちは。元気ですか、田中さん",
+        ),
+        ("1,000円です。", "1000円です.", "1000円です。"),
+        ("101、202。", "101,202.", "101、202。"),
+        ("3・4です。", "3,4です.", "3・4です。"),
+    ],
+)
+def test_analysis_text_preserves_punctuation(
+    client: TestClient, endpoint: str, text: str, norm_text: str, analysis_text: str
+) -> None:
+    """
+    通常の解析 API では、日本語の句読点を保持したテキストを形態素解析に渡す。
+    """
+
+    with (
+        patch.object(
+            pyopenjtalk, "run_frontend", wraps=pyopenjtalk.run_frontend
+        ) as run_frontend,
+        patch.object(style_bert_vits2_tts_engine, "g2p", wraps=g2p) as g2p_call,
+    ):
+        response = client.post(endpoint, params={"text": text, "speaker": 0})
+    assert response.status_code == 200
+    assert g2p_call.call_args.args[0] == norm_text
+    assert g2p_call.call_args.kwargs["analysis_text"] == analysis_text
+    assert run_frontend.call_args_list
+    assert all(call.args[0] == analysis_text for call in run_frontend.call_args_list)
+
+
+@pytest.mark.parametrize(
+    ("text", "analysis_text"),
+    [
+        ("こんにちは。元気ですか、田中さん", "こんにちは。元気ですか、田中さん"),
+        ("1,000円です。", "1000円です。"),
+    ],
+)
+def test_dictionary_preview_preserves_punctuation(
+    client_with_default_model: TestClient, text: str, analysis_text: str
+) -> None:
+    """
+    末尾の「ガ」を補う辞書プレビューでは、解析用テキストから音声を生成する。
+    """
+
+    client = client_with_default_model
+    style_id = get_first_style_id(client)
+    response = client.post(
+        "/audio_query", params={"text": text + "ガ", "speaker": style_id}
+    )
+    assert response.status_code == 200
+    query = AudioQuery.model_validate(response.json())
+    assert query.accent_phrases[-1].moras[-1].text == "ガ"
+    query.kana = text
+    with patch.object(
+        pyopenjtalk, "run_frontend", wraps=pyopenjtalk.run_frontend
+    ) as run_frontend:
+        response = client.post(
+            "/synthesis", params={"speaker": style_id}, json=query.model_dump()
+        )
+    assert response.status_code == 200
+    assert run_frontend.call_args_list[0].args[0] == analysis_text
+    assert all(
+        call.args[0] in (analysis_text, analysis_text + "ガ")
+        for call in run_frontend.call_args_list
+    )
+    wave, _ = soundfile.read(BytesIO(response.content))
+    assert len(wave) > 0
+    assert np.isfinite(wave).all()
 
 
 @pytest.mark.parametrize(
@@ -22,7 +100,7 @@ from voicevox_engine.tts_pipeline.model import AccentPhrase
     ("text", "surface", "baseline_reading", "selected_reading", "expected_reading"),
     [
         ("人気のない店", "人気", "ニンキ", "ヒトケ", "ヒトケノナイミセ"),
-        ("一寸です", "一寸", "チョット", "イッスン", "イッスンデス"),
+        ("最中を食べる", "最中", "サイチュー", "モナカ", "モナカオタベル"),
     ],
 )
 def test_tsqyomi_reading_and_synthesis(
