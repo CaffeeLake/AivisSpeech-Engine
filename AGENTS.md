@@ -2,27 +2,31 @@
 
 ## プロジェクト概要
 
-**AivisSpeech Engine** は、[VOICEVOX ENGINE](https://github.com/VOICEVOX/voicevox_engine) をフォークして開発している日本語音声合成エンジンです。実体は FastAPI + Uvicorn による HTTP API サーバーで、デスクトップアプリ [AivisSpeech](https://github.com/Aivis-Project/AivisSpeech) に組み込まれて動作するほか、単独の API サーバーとしても利用できます。
+**AivisSpeech Engine** は、[VOICEVOX ENGINE](https://github.com/VOICEVOX/voicevox_engine) をフォークして開発している日本語音声合成エンジンである。  
+実体は FastAPI + Uvicorn による HTTP API サーバーで、デスクトップアプリ [AivisSpeech](https://github.com/Aivis-Project/AivisSpeech) に組み込まれて動作するほか、単独の API サーバーとしても利用できる。
 
-- **音声合成モデル形式**: **AIVM** / **AIVMX** (`.aivmx`) という、学習済みモデル・ハイパーパラメータ・スタイルベクトル・話者メタデータを 1 ファイルにまとめた Aivis Project 独自のオープンフォーマットを採用しています。AIVM は Safetensors ベース、AIVMX は ONNX ベースで、AivisSpeech Engine は PyTorch 依存を排除しインストールサイズを抑えるため AIVMX のみをサポートします
+- **音声合成モデル形式**:
+  - **AIVM** / **AIVMX** (`.aivmx`) という、学習済みモデル・ハイパーパラメータ・スタイルベクトル・話者メタデータを 1 ファイルにまとめた Aivis Project 独自のオープンフォーマットを採用
+  - AIVM は Safetensors ベース、AIVMX は ONNX ベースで、AivisSpeech Engine は PyTorch 依存を排除しインストールサイズを抑えるため AIVMX のみをサポートする
 - **モデルアーキテクチャ**: `Style-Bert-VITS2` / `Style-Bert-VITS2 (JP-Extra)` に対応
-- **API 互換性**: VOICEVOX ENGINE の HTTP API と概ね互換性がありますが、`intonationScale` の意味変更・`tempoDynamicsScale` の追加・歌声合成系エンドポイントの `501 Not Implemented` 化など、独自の仕様変更が多数あります。詳細は README.md の「VOICEVOX API との互換性について」節を参照してください
-- **Aivis Project エコシステムでの位置づけ**: `aivmlib` (AIVM/AIVMX メタデータの読み書きライブラリ)、[AivisHub](https://hub.aivis-project.com/) (音声合成モデルの共有ハブ、AivisSpeech Engine 起動時のデフォルトモデル配布・強制削除ルール配布元でもある)、Aivis Cloud API / Citoras (このリポジトリとは無関係な、GPU サーバー向け別製品) といった周辺プロジェクトが存在します。本リポジトリはあくまでローカル PC 上で 1 人で使うことを想定した設計であり、大量リクエストを捌く API サーバー用途には最適化されていません
+- **API 互換性**: VOICEVOX ENGINE の HTTP API と概ね互換性があるが、`intonationScale` の意味変更・`tempoDynamicsScale` の追加・歌声合成系エンドポイントの `501 Not Implemented` 化など、独自の仕様変更が多数存在する（詳細は README.md の「VOICEVOX API との互換性について」節を参照のこと）
+- **Aivis Project エコシステムでの位置づけ**:
+  - `aivmlib` (AIVM/AIVMX メタデータの読み書き用ライブラリ)、[AivisHub](https://hub.aivis-project.com/) (音声合成モデル共有サイト、AivisSpeech Engine 起動時のデフォルトモデルのダウンロード・更新先でもある)、Aivis Cloud API / Citoras (このリポジトリとは無関係なクラウド音声合成 API 製品) などの周辺プロジェクトが存在する
+  - AivisSpeech Engine はあくまでローカル PC 上で 1 人で使うことを想定した設計であり、大量リクエストを捌く API サーバー用途には最適化されていない
 
 ### 技術スタック
 
-- Python **3.11 固定** (`requires-python = ">=3.11,<3.12"` 、3.12 以降は非対応)
-- パッケージ管理: **uv** (`pip` や `poetry` は使わない)
-- Web フレームワーク: FastAPI (`fastapi-slim` ベース) + Uvicorn + Pydantic v2
-- 音声合成: `style-bert-vits2` (tsukumijima によるフォーク、`pyproject.toml` の `[tool.uv.sources]` で git の特定 `rev` に固定) + ONNX Runtime
-- 日本語処理: `pyopenjtalk-plus` 、`pyworld-prebuilt` 、`kanalizer` 、`e2k` (tsukumijima フォーク) 、`jaconv`
+- Python: 3.11 系
+- パッケージ管理: uv (`pip` や `poetry` は使わない)
+- Web フレームワーク: Uvicorn + FastAPI (`fastapi-slim` ベース) + Pydantic v2
+- 音声合成: `style-bert-vits2` (フォーク版、`pyproject.toml` の `project.dependencies` で特定コミットに固定) + ONNX Runtime
 - エラーレポート: `sentry-sdk[fastapi]`
 - リンタ/フォーマッタ: Ruff (lint + format) 、mypy (strict モード)
 - ビルド: PyInstaller (`run.spec`)
 
 ### 主要コマンド
 
-すべて `uv run task <name>` (taskipy) 経由で実行します。`pyproject.toml` の `[tool.taskipy.tasks]` に定義があります。
+すべて `uv run task <name>` (taskipy) 経由で実行すること。定義は `pyproject.toml` 内 `[tool.taskipy.tasks]` にある。
 
 ```bash
 uv sync --group dev --group build  # 依存関係のインストール (開発時)
@@ -50,27 +54,42 @@ uv run task build                  # PyInstaller によるビルド
 
 ### `voicevox_engine/` の構成
 
-VOICEVOX ENGINE からのリブランディングを最小限に留める方針のため、ディレクトリ名は upstream のまま `voicevox_engine` を使い続けています (後述の同期方針を参照)。以下、AivisSpeech Engine で新規追加された固有部分と、upstream 由来で改変を受けている部分を区別して記載します。
+VOICEVOX ENGINE とのコード差分を最小限に保ち upstream に追従しやすくするため、パッケージ名は意図的に upstream の `voicevox_engine` を使い続けている (後述の同期方針を参照)。  
+以下、AivisSpeech Engine で新規追加された固有部分と、upstream 由来で改変を受けている部分を区別して記載する。
 
-- **`aivm_manager.py` / `aivm_infos_repository.py` (AivisSpeech Engine 固有)**: AIVMX モデルのインストール・スキャン・メタデータキャッシュ・AivisHub との同期を担う中核クラス群。VOICEVOX ENGINE における `MetasStore` の役割を代替しており、`metas/metas_store.py` 自体はコードとして残っているが無効化されている。`AivmManager` のコンストラクタでは、AivisHub から取得した「強制削除ルール」に一致する既存モデルの自動アンインストールと、「デフォルトモデル構成」に基づく自動インストール・自動更新を毎回行う
+- **`aivm_manager.py` / `aivm_infos_repository.py` (AivisSpeech Engine 固有)**:
+  - AIVMX モデルのインストール・スキャン・メタデータキャッシュ・AivisHub との同期を担う中核クラス群
+  - VOICEVOX ENGINE における `MetasStore` の役割を代替しており、`metas/metas_store.py` 自体はコードとして残っているが無効化されている
+  - `AivmManager` のコンストラクタでは、AivisHub から取得した「強制削除ルール」に一致する既存モデルの自動アンインストールと、「デフォルトモデル構成」に基づく自動インストール・自動更新を毎回行う
 - **`app/`**: FastAPI アプリケーション定義
-  - `routers/aivm_models.py`: AivisSpeech Engine 固有。AIVMX モデルの管理 API
+  - `routers/aivm_models.py`: AivisSpeech Engine 固有の AIVMX モデルの管理 API
   - `routers/character.py` , `routers/tts_pipeline.py`: upstream 由来だが、歌声合成系 API (`/singers` 、`/sing_frame_audio_query` など) やキャンセル可能音声合成 API を常に `501 Not Implemented` に、モーフィング API を常に `400 Bad Request` にする改変が入っている
-- **`core/` (upstream 由来、実運用では不使用)**: `core_wrapper.py` / `core_adapter.py` / `core_initializer.py` は VOICEVOX CORE (共有ライブラリ) を読み込むための upstream コード。AivisSpeech Engine では `run.py` の `enable_mock: bool = True` の通り、常にモック実装 (`dev/core/mock.py`) のみが登録され、実際の音声合成処理はここを経由しない。upstream との差分を抑えるためコードごと残置されている
+- **`core/` (upstream 由来、実運用では不使用)**:
+  - `core_wrapper.py` / `core_adapter.py` / `core_initializer.py` は VOICEVOX CORE (共有ライブラリ) を読み込むためのコード
+  - AivisSpeech Engine では `run.py` の `enable_mock: bool = True` の通り、常にモック実装 (`dev/core/mock.py`) のみが登録され、実際の音声合成処理はこのモジュールを経由しない
+  - upstream との差分を抑えるために残置されている
 - **`tts_pipeline/`**: 音声合成パイプライン
-  - `style_bert_vits2_tts_engine.py` (AivisSpeech Engine 固有、1000 行超): `AivmManager` が管理する AIVMX モデルを ONNX Runtime + Style-Bert-VITS2 で実際に音声合成する、本エンジンの心臓部
+  - `style_bert_vits2_tts_engine.py` (AivisSpeech Engine 固有): `AivmManager` が管理する AIVMX モデルを ONNX Runtime + Style-Bert-VITS2 で実際に音声合成する、本エンジンの心臓部
   - `tts_engine.py`: upstream 由来の `TTSEngine` / `TTSEngineManager` 型定義を維持しつつ、`run.py` 側で `make_tts_engines_from_cores()` の代わりに `StyleBertVITS2TTSEngine` を手動登録する形で差し替えて利用する
-  - `kana_converter.py` , `katakana_english.py` , `njd_feature_processor.py` など: 読み・アクセント処理。upstream 由来だが、AivisSpeech Engine 向けの不具合修正 (辞書登録内容の反映など) が随時入る
-- **`metas/` , `preset/` , `setting/` , `user_dict/` , `morphing/` , `library/`**: おおむね upstream 由来。`preset/model.py` や `model.py` の `AudioQuery` / `Mora` / `Preset` 型は、`intonationScale` の意味変更や `tempoDynamicsScale` 追加など AivisSpeech Engine 向けの仕様変更を受けている (詳細は README.md 参照)
-- **`utility/`**: `aivishub_client.py` (AivisHub API クライアント、デフォルトモデル配布・強制削除ルール取得に使用) 、`sentry_utility.py` (Sentry 送信前フィルタ) 、`user_agent_utility.py` , `runtime_utility.py` などが AivisSpeech Engine 固有の追加分。`path_utility.py` などは upstream 由来
-- **`model.py`**: `AudioQuery` などの中核データモデル。AivisSpeech Engine 向けの仕様変更とバリデーション強化が入っている (後述)
-- **`engine_manifest.py` , `resource_manager.py` , `cancellable_engine.py`**: upstream 由来
+  - `kana_converter.py` , `katakana_english.py` , `njd_feature_processor.py` など: AivisSpeech Engine では Style-Bert-VITS2 側の日本語テキスト処理を利用するため、これらのモジュールは利用されていないが、upstream との差分を抑えるために残置されている
+- **`metas/` , `preset/` , `setting/` , `morphing/` , `library/`**:
+  - おおむね upstream 由来のコードを継承している
+  - `library/` 以下の実装は、AivisSpeech Engine では `/aivm_models` 以下の独自 API で音声合成モデル管理を実装しているため、VOICEVOX ENGINE 同様に無効化されている
+  - `preset/model.py` や `model.py` の `AudioQuery` / `Mora` / `Preset` 型は、`intonationScale` の意味変更や `tempoDynamicsScale` 追加など AivisSpeech Engine 向けの仕様変更を受けている (詳細は README.md を参照)
+- **`user_dict/`**: ユーザー辞書関連 API とそのコア実装は、複数アクセント句の登録やデフォルトユーザー辞書のロードなどの多数の抜本的改善を行っており、upstream からは大幅に改変されている
+- **`utility/`**:
+  - 基本的に upstream 由来のコードを継承する
+  - `aivishub_client.py` (AivisHub API クライアント、デフォルトモデル配布・強制削除ルール取得に使用) 、`sentry_utility.py` (Sentry 送信前フィルタ) 、`user_agent_utility.py` , `runtime_utility.py` などは AivisSpeech Engine 固有で追加されている
+- **`model.py`**: `AudioQuery` などの中核データモデルで、upstream 由来のコードを継承しつつ、AivisSpeech Engine 向けの仕様変更とバリデーション強化が入っている (後述)
+- **`engine_manifest.py` , `resource_manager.py` , `cancellable_engine.py`**:
+  - 基本的に upstream 由来のコードだが、キャンセル可能な音声合成エンジン (`cancellable_engine.py`) や `resource_manager.py` は AivisSpeech Engine では無効化されている
 
 ## 直近の重要な設計判断・恒久的な制約
 
 ### onnxruntime のバージョン制約
 
-`pyproject.toml` の onnxruntime 系依存は、OS ・アーキテクチャごとに `sys_platform` / `platform_machine` マーカーで細かく出し分けられており、それぞれに理由があります。迂闊にバージョン上限・下限を変更しないでください。
+`pyproject.toml` の onnxruntime 系依存は、OS・アーキテクチャごとに `sys_platform` / `platform_machine` マーカーで細かく出し分けられており、それぞれ明確な意図がある。  
+迂闊にバージョン上限・下限を変更してはならない。
 
 - **macOS x64 (Intel Mac)**: `onnxruntime==1.23.2` に固定。Intel Mac 向け wheel が提供される最終バージョンのため
 - **macOS arm64 / Linux aarch64**: `onnxruntime>=1.24.0,<2.0.0`。1.23.2 に固定すると Intel Mac 側の制約に引きずられて universal lock が解決できなくなるため、明示的に 1.24.0 以降を指定している (コミット `e724f0d`) 。当初は「Intel Mac 向け wheel の存在を lock 時に必須化する」ための `required-environments` 設定も入れていたが、実際に依存解決を検証した結果不要と判断し削除した (コミット `ef581ea`)
@@ -84,29 +103,34 @@ VOICEVOX ENGINE からのリブランディングを最小限に留める方針�
 
 ### VOICEVOX CORE は常にモック
 
-`run.py` の `enable_mock: bool = True` (コメント「常にモック版 VOICEVOX CORE を利用する」) の通り、AivisSpeech Engine では VOICEVOX CORE 本体の共有ライブラリを読み込みません。実際の音声合成は `AivmManager` が読み込んだ AIVMX モデルを `StyleBertVITS2TTSEngine` が処理する経路のみが使われます。`core/core_wrapper.py` などの VOICEVOX CORE 統合コードや `make_tts_engines_from_cores()` は upstream との差分を抑えるために残置されているだけで、`run.py` 内でも該当の呼び出しはコメントアウトされており実行パスに乗りません。
+- `run.py` の `enable_mock: bool = True` (コメント「常にモック版 VOICEVOX CORE を利用する」) の通り、AivisSpeech Engine では VOICEVOX CORE 本体の共有ライブラリを読み込まないし、ビルドにも組み込まれない
+- 実際の音声合成は `AivmManager` に読み込まれた AIVMX モデルが `StyleBertVITS2TTSEngine` によって推論され提供される
+- `core/core_wrapper.py` などの VOICEVOX CORE 統合コードや `make_tts_engines_from_cores()` は upstream との差分を抑えるために残置されているだけで、`run.py` 内でも該当の呼び出しはコメントアウトされており、実行パスには一切通らない
 
 ### AudioQuery のバリデーション強化
 
-`vowel` フィールドに音素以外の値を入れるなど、本来受け付けられない入力によってコア内部でクラッシュする事例が Sentry 上で観測されたため、`voicevox_engine/model.py` の Pydantic バリデーションを強化し、入力バリデーションの時点でエラーを返すよう修正した (コミット `956ec5a`) 。コア内部でのクラッシュはプロセス全体に影響するため、境界であるモデル層で弾く方針を取っている。
+- `vowel` フィールドに音素以外の値を入れるなど、本来受け付けられない入力が API リクエストされた結果コア内部でクラッシュする事例が Sentry 上で観測されたため、`voicevox_engine/model.py` の Pydantic バリデーションを強化し、入力バリデーションの時点でエラーを返すよう修正した (コミット `956ec5a`)
+- コア内部でのクラッシュはプロセス全体に影響するため、境界であるモデル層で弾く方針を取っている
 
 ## upstream (VOICEVOX ENGINE) との同期方針
 
-README.md の「開発方針」節に明記されている、以下の方針を必ず踏まえてください。詳細や理由は README.md 側も参照してください。
+README.md の「開発方針」節に明記されている、以下の方針を必ず踏まえること。詳細や理由は README.md 側も参照。
 
 - **改変は必要最小限に留める**: VOICEVOX 最新版への追従を容易にするため。`voicevox_engine` ディレクトリのリネームなど、import 文の差分が膨大になるリブランディングは行わない
 - **リファクタリングは行わない**: upstream とのコンフリクトが発生しやすく、また upstream のコード全体に精通しているわけではないため
 - **AivisSpeech で使わない機能もコードごと削除しない**: 歌声合成機能などが該当する。無効化する場合はコメントアウトで対応し (`#` で大量になる場合は `""" """` を使う) 、削除はしない。ただし Dockerfile や GitHub Actions などの構成ファイル・ビルドツール類はこの限りではない (元々 AivisSpeech Engine 側での改変量が大きいため)
 - **ドキュメントの更新は行わない**: 保守や追従が困難なため。`docs/` 以下は upstream のまま放置されている
-- **テストコードの追加は行わない**: AivisSpeech Engine 向けの改変にともなうテスト保守コストを避けるため。既存のテストのみ、通るように修正・コメントアウトで消極的に維持する (AivisSpeech Engine の改変によりテストスナップショットは upstream と異なる)
-
-この方針の帰結として、コード中に一見 "死んでいる" ように見える upstream 由来のコードやコメントアウトされた大きなブロックが多数存在しますが、これは意図的な設計判断であり、勝手に削除・リファクタリングしないでください。
+- **既存のテストコードは、テストが通るように一部箇所の修正やコメントアウトを行い、消極的に維持する**:
+  - AivisSpeech Engine 向けの改変にともなうテスト保守コストを避けるため
+  - AivisSpeech Engine 向けに新規開発した箇所は、従来は保守コストを鑑みテストコードを追加しない方針だったが、AI により実装コストが大幅に削減されたため、適宜追加する方向で判断する
+  - AivisSpeech Engine の改変により、テストスナップショットは upstream と大きく異なる
+  - この方針の帰結として、コード中に一見 "死んでいる" ように見える upstream 由来のコードやコメントアウトされた大きなブロックが多数存在するがが、これは意図的な設計判断であり、勝手に削除・リファクタリングしてはならない
 
 ## 開発時の注意
 
 - **パッケージ管理は uv に固定**: `python` / `pip` を直接使わず、必ず `uv run` 経由でコマンドを実行する
-- **`style-bert-vits2` / `e2k` は git 依存**: `pyproject.toml` の `[tool.uv.sources]` で tsukumijima のフォークリポジトリの特定コミット (`rev`) に固定されている。更新する際は `rev` を明示的に張り替える必要があり、`uv.lock` も連動して更新される
-- **リンタ/フォーマッタ/型チェック**: 編集後は必ず `uv run task lint` (ruff check --fix + mypy strict) と `uv run task format` (ruff format) を実行する。CI (`test.yml`) でも同じチェックが Windows / macOS / Ubuntu の 4 環境で走る
+- **音声合成コアである `style-bert-vits2` は git 依存**: `pyproject.toml` の `project.dependencies` によって特定コミットに固定されている (2026年10月21日時点は `b937361`)。更新する際はこのコミットを張り替えた上で `uv lock` を実行する
+- **リンタ/フォーマッタ/型チェック**: 編集後は必ず `uv run task lint` (ruff check --fix + mypy strict) と `uv run task format` (ruff format) を実行しなければならない。CI (`test.yml`) でも同じチェックが Windows / macOS / Ubuntu の 4 環境で走る
 - **pre-commit は push 時のみ実行**: `.pre-commit-config.yaml` の各フックはすべて `stages: [pre-push]` であり、コミット時には走らない。コミット前に手元で `uv run task lint` などを明示的に実行しておくこと
 - **テスト**: `uv run task test` (pytest) 。スナップショット更新は `uv run task update-snapshots` (syrupy) 。`uv.lock` の整合性チェックは CI で `uv lock --check` として実行される
 - **ライセンス情報**: `uv run task update-licenses` で `resources/engine_manifest_assets/dependency_licenses.json` を再生成する。`pip-licenses` は `5.0.0` に厳密固定 (`pyproject.toml` の NOTE 参照、issue #1281 対応のため)
