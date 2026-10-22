@@ -202,14 +202,32 @@ class StyleBertVITS2TTSEngine(TTSEngine):
 
         # 文脈に応じた読み分けに使う tsqyomi をロードし、他のモデルと同じ保存先へキャッシュする
         # 小規模な読み分けモデルは CPU で実行し、音声合成用の GPU メモリを確保する
+        ## tsqyomi がロードできなかった場合でも通常の g2p 処理にフォールバックする形で音声合成は可能なため、
+        ## 万が一取得や読み込みに失敗した場合でも、警告を出した上で起動を継続する
         start_time = time.time()
         logger.info("Loading tsqyomi model...")
-        tsqyomi.load_model(
-            onnx_providers=["CPUExecutionProvider"],
-            cache_dir=self._bert_model_cache_dir,
-            allow_provider_fallback=False,
-        )
-        logger.info(f"tsqyomi model loaded. ({time.time() - start_time:.2f}s)")
+        try:
+            try:
+                self._load_tsqyomi_model()
+            except (NoSuchFile, InvalidProtobuf, OSError) as ex:
+                # BERT モデルと同じく、壊れたキャッシュや不完全なダウンロードが残っている場合は、
+                # tsqyomi のキャッシュだけを削除してから再ダウンロードを1回試みる
+                ## 同じ保存先にある BERT モデルのキャッシュは残す
+                logger.warning(
+                    "tsqyomi model cache appears corrupted or download was incomplete. Clearing cache and retrying...",
+                    exc_info=ex,
+                )
+                tsqyomi_model_cache_path = (
+                    self._bert_model_cache_dir / "models--tsukumijima--tsqyomi-models"
+                )
+                shutil.rmtree(tsqyomi_model_cache_path, ignore_errors=True)
+                self._load_tsqyomi_model()
+            logger.info(f"tsqyomi model loaded. ({time.time() - start_time:.2f}s)")
+        except Exception as ex:
+            logger.warning(
+                "Failed to load tsqyomi model. Reading disambiguation by tsqyomi is disabled.",
+                exc_info=ex,
+            )
 
         # load_all_models が True の場合は全ての音声合成モデルをロードしておく
         if load_all_models is True:
@@ -236,6 +254,15 @@ class StyleBertVITS2TTSEngine(TTSEngine):
             pretrained_model_name_or_path=self.BERT_MODEL_REPOSITORY,
             cache_dir=str(self._bert_model_cache_dir),
             revision=self.BERT_MODEL_REVISION,
+        )
+
+    def _load_tsqyomi_model(self) -> None:
+        """tsqyomi のモデルを、BERT モデルと同じ保存先から CPU にロードし、ローカルキャッシュを更新する。"""
+        tsqyomi.load_model(
+            # tsqyomi は非常に軽量で CPU でも高速に推論できるため、ExecutionProvider は常に CPU 固定とする
+            onnx_providers=["CPUExecutionProvider"],
+            cache_dir=self._bert_model_cache_dir,
+            allow_provider_fallback=False,
         )
 
     def _reset_bert_model_cache(self) -> None:
@@ -443,15 +470,29 @@ class StyleBertVITS2TTSEngine(TTSEngine):
 
         # 入力テキストを Style-Bert-VITS2 の基準で正規化
         ## Style-Bert-VITS2 では「〜」などの伸ばす棒も長音記号として扱うため、normalize_text() でそれらを統一する
-        normalized_text = normalize_text(text.strip())  # 前後の空白を削除してから実行
+        normalization_result = normalize_text(
+            # 前後の空白を削除してから実行
+            text.strip(),
+            # pyopenjtalk-plus の形態素解析に渡すための解析用テキストも取得
+            return_analysis_text=True,
+        )
 
         # g2p 処理を行い、テキストからモーラ情報と音高 (0 or 1) のリストを取得
         ## Style-Bert-VITS2 側では、pyopenjtalk_g2p_prosody() から取得したアクセント情報が含まれるモーラのリストを
         ## モーラ情報と音高のリストに変換し (句読点や記号は失われている) 、後付けで失われた句読点や記号のモーラを適切な位置に追加する形で実装されている
         ## VOICEVOX ENGINE 側のアクセント句系列生成処理は微妙に互換性がないため使っていない
-        ## VOICEVOX ENGINE では「ん」の音素を「N」としているため、use_jp_extra (True のとき「ん」の音素を「N」とする) は常に True に設定している
         ## JP-Extra モデルと通常のモデルの音素差の吸収は synthesize_wave() で行う
-        phones, tones, _, _, _, sep_kata_with_joshi = g2p(normalized_text, use_jp_extra=True, use_tsqyomi=True, raise_yomi_error=False)  # fmt: skip
+        phones, tones, _, _, _, sep_kata_with_joshi = g2p(
+            normalization_result.text,
+            # 句読点を「、」「。」のまま保持する解析用テキストを渡し、句読点直前の数字が桁区切りや小数点として読まれないように配慮する
+            analysis_text=normalization_result.analysis_text,
+            # VOICEVOX ENGINE では「ん」の音素を「N」としているため、use_jp_extra (True のとき「ん」の音素を「N」とする) は常に True に設定している
+            use_jp_extra=True,
+            # 万が一 tsqyomi をロードできなかった場合は、tsqyomi を使わずに g2p 処理を行う
+            use_tsqyomi=tsqyomi.is_model_loaded(),
+            # 万が一読めない文字があった場合は ' に変換する (pyopenjtalk-plus の更新により、基本的に発生しない想定)
+            raise_yomi_error=False,
+        )
         mora_tone_list = _phone_tone2mora_tone(list(zip(phones, tones, strict=False)))
 
         # sep_kata_with_joshi のカタカナを音素 (子音と母音のタプル) に変換
@@ -672,7 +713,15 @@ class StyleBertVITS2TTSEngine(TTSEngine):
                 last_mora = query.accent_phrases[-1].moras[-1]
                 if last_mora.text == "ガ":
                     # Style-Bert-VITS2 側の g2p 処理を呼び、カタカナ化されたモーラのリストを取得
-                    kata_mora_list = g2kata_tone(normalize_text(text))
+                    normalization_result = normalize_text(
+                        text,
+                        # pyopenjtalk-plus の形態素解析に渡すための解析用テキストも取得
+                        return_analysis_text=True,
+                    )
+                    kata_mora_list = g2kata_tone(
+                        normalization_result.text,
+                        analysis_text=normalization_result.analysis_text,
+                    )
                     # kata_mora_list の最後のモーラが "ガ" でない場合は "ガ" を追加
                     if len(kata_mora_list) > 0 and kata_mora_list[-1][0] != "ガ":
                         text += "ガ"

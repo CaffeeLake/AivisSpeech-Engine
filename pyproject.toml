@@ -10,7 +10,7 @@ dependencies = [
   "platformdirs>=4.2.0",
   "psutil>=6.1.1",
   "pydantic>=2.7.3",
-  "pyopenjtalk-plus[tsqyomi]>=0.4.1.post9,<1.0.0",
+  "pyopenjtalk-plus[tsqyomi]>=0.4.1.post10,<1.0.0",
   "python-multipart>=0.0.31,<1.0.0", # NOTE: required by fastapi.Form (fastapi-slim's unmanaged dependency)
   "pyworld-prebuilt>=0.3.5.post2,<1.0.0",
   "pyyaml>=6.0.1",
@@ -35,7 +35,7 @@ dependencies = [
   # aivmlib は AIVMX ファイルのメタデータ読み取りに必要
   "aivmlib>=1.2.1,<2.0.0",
   # AivisSpeech-Engine にはカスタマイズされた Style-Bert-VITS2 が必要
-  "style-bert-vits2 @ git+https://github.com/tsukumijima/Style-Bert-VITS2@9fc7f5a082de23200b72a70d672d499da71eac5b",
+  "style-bert-vits2 @ git+https://github.com/tsukumijima/Style-Bert-VITS2@b9373614d713e18937fa8a9e200b9af257578138",
   # OS に応じて適切な ONNX Runtime プラグインをインストール
   ## onnxruntime (CPU): onnxruntime-directml / onnxruntime-gpu 非対応の環境すべて
   ## macOS x64 のみ、Intel Mac に対応する最終バージョンである onnxruntime==1.23.2 に固定

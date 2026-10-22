@@ -93,7 +93,26 @@ def text_to_full_context_labels(text: str, enable_katakana_english: bool) -> lis
     if len(text.strip()) == 0:
         return []
 
-    njd_features = list(map(lambda f: NjdFeature(**f), pyopenjtalk.run_frontend(text)))
+    # pyopenjtalk-plus の NJDFeature 型には追加のフィールドが含まれるため、利用するフィールドだけを明示的に取り出して NjdFeature 型に変換する
+    njd_features = [
+        NjdFeature(
+            string=f["string"],
+            pos=f["pos"],
+            pos_group1=f["pos_group1"],
+            pos_group2=f["pos_group2"],
+            pos_group3=f["pos_group3"],
+            ctype=f["ctype"],
+            cform=f["cform"],
+            orig=f["orig"],
+            read=f["read"],
+            pron=f["pron"],
+            acc=f["acc"],
+            mora_size=f["mora_size"],
+            chain_rule=f["chain_rule"],
+            chain_flag=f["chain_flag"],
+        )
+        for f in pyopenjtalk.run_frontend(text)
+    ]
 
     if enable_katakana_english:
         for i, feature in enumerate(njd_features):
